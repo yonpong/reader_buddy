@@ -15,7 +15,7 @@
       line-height: 1.45;
     }
     .wrap {
-      max-width: 980px;
+      max-width: 960px;
       margin: 0 auto;
       display: grid;
       gap: 16px;
@@ -84,12 +84,9 @@
   <div class="box">
     <h1>Könyvértékeléseim & AI Ajánló</h1>
     <div class="row">
-      <input type="password" id="apiKeyInput" placeholder="Gemini API kulcs (AIza...)" style="max-width:340px;" />
-      <button type="button" id="saveKeyBtn">Kulcs mentése</button>
       <button type="button" class="sec" id="exportBtn">JSON mentés</button>
       <button type="button" class="sec" id="importBtn">JSON betöltés</button>
       <input type="file" id="importFile" accept=".json" style="display:none;" />
-      <span id="keyStatus" class="msg"></span>
     </div>
   </div>
 
@@ -113,7 +110,7 @@
     <!-- AI AJÁNLÓ -->
     <div class="box">
       <h2>AI Mit ajánl nekem?</h2>
-      <textarea id="aiPromptExtra" rows="2" placeholder="Opcionális kérés (pl. most valami rövidebbet, vagy mondd meg mit olvassak)..."></textarea>
+      <textarea id="aiPromptExtra" rows="2" placeholder="Opcionális kérés (pl. most valami pörgőset vagy rövidebbet)..."></textarea>
       <div class="row">
         <button type="button" id="askAiBtn">Küldés az AI-nak</button>
         <span id="aiStatus" class="msg"></span>
@@ -125,52 +122,46 @@
 
 <script>
 (function () {
-  // HA KÖZVETLENÜL A KÓDBA SZERETNÉD ÍRNI AZ AIza... KULCSOT, IDE ÍRD BE:
-  const HARDCODED_API_KEY = "";
+  // IDE ÍRD BE A SAJÁT AIza... KEZDETŰ GEMINI API KULCSODAT:
+  const GEMINI_API_KEY = "AQ.Ab8RN6JN9ZLZdCOdIVMaMqBpqGFRe-qoHKX2_tqFe-cZ8RKrVQ";
 
-  const KEY = "konyv_ertekelesek_ai_v3";
+  const STORAGE_KEY = "konyv_ertekelesek_fix_v1";
 
-  const initialData = {
-    apiKey: HARDCODED_API_KEY,
-    books: [
-      {
-        id: 1,
-        title: "Vörös lázadás",
-        author: "Pierce Brown",
-        rating: "5/5",
-        review: "Pörgős, kemény sci-fi, jó karakterek."
-      },
-      {
-        id: 2,
-        title: "Piranesi",
-        author: "Susanna Clarke",
-        rating: "4.5/5",
-        review: "Különleges hangulat, rejtélyes világ."
-      }
-    ]
-  };
+  const defaultBooks = [
+    {
+      id: 1,
+      title: "Vörös lázadás",
+      author: "Pierce Brown",
+      rating: "5/5",
+      review: "Pörgős, kemény sci-fi, jó karakterek."
+    },
+    {
+      id: 2,
+      title: "Piranesi",
+      author: "Susanna Clarke",
+      rating: "4.5/5",
+      review: "Különleges hangulat, rejtélyes világ."
+    }
+  ];
 
-  let data = loadData();
+  let books = loadBooks();
 
-  function loadData() {
+  function loadBooks() {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        localStorage.setItem(KEY, JSON.stringify(initialData));
-        return structuredClone(initialData);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultBooks));
+        return structuredClone(defaultBooks);
       }
-      const p = JSON.parse(raw);
-      return {
-        apiKey: p.apiKey || HARDCODED_API_KEY || "",
-        books: Array.isArray(p.books) ? p.books : []
-      };
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return structuredClone(initialData);
+      return structuredClone(defaultBooks);
     }
   }
 
-  function saveData() {
-    localStorage.setItem(KEY, JSON.stringify(data));
+  function saveBooks() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
   }
 
   function parseMoly(raw) {
@@ -208,13 +199,13 @@
   }
 
   function renderBooks() {
-    document.getElementById("bookCount").textContent = data.books.length;
+    document.getElementById("bookCount").textContent = books.length;
     const el = document.getElementById("booksList");
-    if (!data.books.length) {
+    if (!books.length) {
       el.innerHTML = "<p class='meta'>Még nincs beírt könyv.</p>";
       return;
     }
-    el.innerHTML = data.books.map(b => `
+    el.innerHTML = books.map(b => `
       <div class="book">
         <div class="book-head">
           <span>${esc(b.title)}</span>
@@ -230,8 +221,8 @@
   }
 
   window.delBook = function (id) {
-    data.books = data.books.filter(b => b.id !== id);
-    saveData();
+    books = books.filter(b => b.id !== id);
+    saveBooks();
     renderBooks();
   };
 
@@ -241,15 +232,6 @@
     }[m]));
   }
 
-  document.getElementById("apiKeyInput").value = data.apiKey;
-  if (data.apiKey) document.getElementById("keyStatus").textContent = "Kulcs elmentve.";
-
-  document.getElementById("saveKeyBtn").addEventListener("click", () => {
-    data.apiKey = document.getElementById("apiKeyInput").value.trim();
-    saveData();
-    document.getElementById("keyStatus").textContent = data.apiKey ? "Kulcs elmentve." : "Kulcs törölve.";
-  });
-
   document.getElementById("addMolyBtn").addEventListener("click", () => {
     const inp = document.getElementById("molyInput");
     const st = document.getElementById("molyStatus");
@@ -258,8 +240,8 @@
       return;
     }
     const item = parseMoly(inp.value);
-    data.books.unshift(item);
-    saveData();
+    books.unshift(item);
+    saveBooks();
     renderBooks();
     inp.value = "";
     st.textContent = `Beírva: ${item.title} (${item.rating})`;
@@ -268,17 +250,16 @@
   document.getElementById("askAiBtn").addEventListener("click", async () => {
     const out = document.getElementById("aiOutput");
     const st = document.getElementById("aiStatus");
-    const activeKey = (data.apiKey || HARDCODED_API_KEY || "").trim();
 
-    if (!activeKey) {
-      out.textContent = "Nincs beállítva AIza... kezdetű Gemini API kulcs.";
+    if (!GEMINI_API_KEY || !GEMINI_API_KEY.trim()) {
+      out.textContent = "Hiányzik a GEMINI_API_KEY a kódból (a <script> elején lévő idézőjelek közé írd be az AIza... kulcsot).";
       return;
     }
 
     st.textContent = "Küldés...";
     out.textContent = "Gondolkodom az összes értékelésed alapján...";
 
-    const allReviewsText = data.books.map((b, i) =>
+    const allReviewsText = books.map((b, i) =>
       `${i + 1}. Cím: ${b.title} | Szerző: ${b.author} | Értékelés: ${b.rating}\nVélemény: ${b.review || "(nincs szöveg)"}`
     ).join("\n\n");
 
@@ -293,7 +274,7 @@
 
     try {
       const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY.trim())}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -320,7 +301,7 @@
   });
 
   document.getElementById("exportBtn").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(books, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "konyv-ertekelesek.json";
@@ -337,10 +318,9 @@
     const r = new FileReader();
     r.onload = () => {
       try {
-        const p = JSON.parse(r.result);
-        data = { apiKey: p.apiKey || data.apiKey, books: Array.isArray(p.books) ? p.books : [] };
-        saveData();
-        document.getElementById("apiKeyInput").value = data.apiKey;
+        const parsed = JSON.parse(r.result);
+        books = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.books) ? parsed.books : []);
+        saveBooks();
         renderBooks();
       } catch {
         alert("Hibás JSON fájl.");
