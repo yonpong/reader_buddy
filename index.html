@@ -3,782 +3,354 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Olvasónapló & AI Könyvajánló</title>
+  <title>Könyvértékelések & AI Ajánló</title>
   <style>
-    :root {
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --primary: #1e293b;
-      --primary-hover: #0f172a;
-      --accent: #4f46e5;
-      --accent-soft: #eef2ff;
-      --success: #059669;
-      --danger: #dc2626;
-      --star: #f59e0b;
-    }
-
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f5f7;
+      color: #18181b;
+      padding: 20px;
+      line-height: 1.45;
     }
-
-    header {
-      background: var(--primary);
-      color: #fff;
-      padding: 18px 20px;
-      border-bottom: 1px solid #334155;
-    }
-    .header-inner {
-      max-width: 1120px;
+    .wrap {
+      max-width: 980px;
       margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 700;
-    }
-    header p {
-      margin: 2px 0 0;
-      font-size: 13px;
-      color: #cbd5e1;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: #fff;
-      color: var(--text);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      transition: 0.15s ease;
-    }
-    button:hover { background: #f1f5f9; }
-    button.btn-primary {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-    button.btn-primary:hover { background: #4338ca; }
-    button.btn-dark {
-      background: #334155;
-      color: #fff;
-      border-color: #475569;
-    }
-    button.btn-dark:hover { background: #475569; }
-    button.btn-danger {
-      color: var(--danger);
-      border-color: #fecaca;
-      background: #fef2f2;
-    }
-    button.btn-danger:hover { background: #fee2e2; }
-
-    main {
-      max-width: 1120px;
-      margin: 20px auto;
-      padding: 0 16px 48px;
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
+      gap: 16px;
     }
-
-    @media (min-width: 900px) {
-      .two-col {
-        display: grid;
-        grid-template-columns: 1.15fr 0.85fr;
-        gap: 20px;
-        align-items: start;
-      }
+    .box {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 10px;
+      padding: 16px;
     }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    }
-    .card h2 {
-      margin: 0 0 6px;
-      font-size: 17px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .subtext {
-      margin: 0 0 12px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    input[type="text"], input[type="password"], select, textarea {
+    h1, h2 { margin: 0 0 8px; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 16px; }
+    textarea, input {
       width: 100%;
-      padding: 9px 11px;
-      border: 1px solid #cbd5e1;
+      padding: 9px 10px;
+      border: 1px solid #a1a1aa;
       border-radius: 8px;
       font-size: 14px;
       font-family: inherit;
-      background: #fff;
-      color: var(--text);
     }
     textarea { resize: vertical; }
-
-    .grid-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    @media (max-width: 600px) {
-      .grid-form { grid-template-columns: 1fr; }
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      background: #f1f5f9;
-      color: #334155;
-    }
-    .badge-read { background: #dcfce7; color: #166534; }
-    .badge-want { background: #e0e7ff; color: #3730a3; }
-    .badge-dnf { background: #fee2e2; color: #991b1b; }
-
-    .stars {
-      color: var(--star);
-      font-weight: 700;
-      letter-spacing: 1px;
-    }
-
-    .book-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 14px;
-    }
-    .book-item {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 13px;
-      background: #fff;
-    }
-    .book-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .book-title {
-      font-weight: 700;
-      font-size: 15px;
-      margin: 0;
-    }
-    .book-author {
-      font-size: 13px;
-      color: var(--muted);
-      margin: 2px 0 0;
-    }
-    .book-review {
-      margin: 9px 0 0;
-      font-size: 13.5px;
-      color: #334155;
-      white-space: pre-line;
-      background: #f8fafc;
-      padding: 8px 10px;
+    button {
+      padding: 9px 14px;
       border-radius: 8px;
-      border-left: 3px solid #cbd5e1;
-    }
-    .book-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 10px;
-    }
-    .book-actions button {
-      padding: 4px 10px;
-      font-size: 12px;
-    }
-
-    .filter-bar {
-      display: grid;
-      grid-template-columns: 1.5fr 1fr 1fr;
-      gap: 8px;
-      margin-top: 10px;
-    }
-    @media (max-width: 600px) {
-      .filter-bar { grid-template-columns: 1fr; }
-    }
-
-    .ai-box {
-      background: var(--accent-soft);
-      border: 1px solid #c7d2fe;
-    }
-    .ai-output {
-      margin-top: 12px;
-      background: #fff;
-      border: 1px solid #c7d2fe;
-      border-radius: 10px;
-      padding: 14px;
-      font-size: 14px;
-      white-space: pre-line;
-    }
-
-    .status-msg {
-      font-size: 13px;
+      border: 1px solid #18181b;
+      background: #18181b;
+      color: #fff;
       font-weight: 600;
-      margin-top: 6px;
-      display: block;
+      cursor: pointer;
     }
-    .stats-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-      font-size: 13px;
-      color: var(--muted);
+    button:hover { background: #27272a; }
+    button.sec {
+      background: #fff;
+      color: #18181b;
+      border-color: #a1a1aa;
     }
-    .stats-row strong { color: var(--text); }
+    button.sec:hover { background: #f4f4f5; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+    .book {
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+      background: #fafafa;
+    }
+    .book-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
+    .meta { font-size: 12px; color: #52525b; margin-top: 2px; }
+    .review { margin-top: 8px; white-space: pre-line; font-size: 14px; }
+    .ai-out {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f4f4f5;
+      border: 1px solid #d4d4d8;
+      white-space: pre-line;
+      font-size: 14px;
+    }
+    .msg { font-size: 13px; font-weight: 600; }
   </style>
 </head>
 <body>
-
-<header>
-  <div class="header-inner">
-    <div>
-      <h1>Olvasónapló & AI Könyvajánló</h1>
-      <p>Moly.hu értékelések, állandó AI olvasói memória és személyre szabott ajánlások</p>
-    </div>
-    <div class="header-actions">
-      <button type="button" class="btn-dark" id="exportBtn">JSON Export (Mentés)</button>
-      <button type="button" class="btn-dark" id="importTriggerBtn">JSON Visszatöltés</button>
-      <input type="file" id="importFileInput" accept=".json" style="display:none" />
-    </div>
-  </div>
-</header>
-
-<main>
-  <!-- 1. MOLY.HU GYORS BEILLESZTŐ -->
-  <section class="card">
-    <h2>
-      <span>Moly.hu értékelés gyors beillesztése</span>
-      <span class="badge">Automatikus felismerés</span>
-    </h2>
-    <p class="subtext">
-      Másold ki a Moly.hu-ról a könyv adatlapját vagy az értékelésedet (cím, szerző, csillagok, vélemény), illeszd be ide, és egy kattintással rögzíti.
-    </p>
-    <textarea id="molyRawInput" rows="4" placeholder="Illeszd be ide a Moly.hu-ról kimásolt szöveget (pl. Cím - Szerző, 5/5 csillag, vélemény)..."></textarea>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-      <button type="button" class="btn-primary" id="molyParseBtn">Beírás a könyveim közé</button>
-      <span id="molyStatusMsg" class="status-msg"></span>
-    </div>
-  </section>
-
-  <div class="two-col">
-    <!-- BAL OSZLOP: KÖNYVTÁR ÉS MANUÁLIS HOZZÁADÁS -->
-    <div style="display:flex; flex-direction:column; gap:20px;">
-      <!-- Manuális felvitel / szerkesztés -->
-      <section class="card">
-        <h2 id="formHeading">Új könyv / értékelés rögzítése</h2>
-        <input type="hidden" id="editBookId" value="" />
-        <div class="grid-form">
-          <input type="text" id="bookTitle" placeholder="Könyv címe *" />
-          <input type="text" id="bookAuthor" placeholder="Szerző *" />
-          <select id="bookStatus">
-            <option value="read">Olvasott</option>
-            <option value="want">Várólistás</option>
-            <option value="dnf">Félbehagyott</option>
-          </select>
-          <select id="bookRating">
-            <option value="5">5 / 5 csillag (Kiemelkedő)</option>
-            <option value="4.5">4.5 / 5 csillag</option>
-            <option value="4">4 / 5 csillag (Nagyon jó)</option>
-            <option value="3.5">3.5 / 5 csillag</option>
-            <option value="3">3 / 5 csillag (Közepes)</option>
-            <option value="2">2 / 5 csillag (Gyenge)</option>
-            <option value="1">1 / 5 csillag (Nem tetszett)</option>
-            <option value="0">Nincs még értékelve</option>
-          </select>
-        </div>
-        <input type="text" id="bookTags" placeholder="Műfaj / címkék (pl. sci-fi, fantasy, kortárs, thriller)" style="margin-bottom:10px;" />
-        <textarea id="bookReview" rows="3" placeholder="Saját vélemény, ami tetszett vagy zavart benne (az AI ebből tanulja az ízlésed)..."></textarea>
-        <div style="display:flex; gap:8px; margin-top:10px;">
-          <button type="button" class="btn-primary" id="saveBookBtn">Könyv mentése</button>
-          <button type="button" id="cancelEditBtn" style="display:none;">Mégse</button>
-        </div>
-      </section>
-
-      <!-- Könyvlista -->
-      <section class="card">
-        <h2>Könyvtáram és értékeléseim</h2>
-        <div class="stats-row" id="statsRow"></div>
-        <div class="filter-bar">
-          <input type="text" id="searchInput" placeholder="Keresés cím, szerző, szöveg..." />
-          <select id="filterStatus">
-            <option value="all">Minden státusz</option>
-            <option value="read">Csak olvasott</option>
-            <option value="want">Csak várólistás</option>
-            <option value="dnf">Félbehagyott</option>
-          </select>
-          <select id="sortOrder">
-            <option value="newest">Legújabb elöl</option>
-            <option value="ratingDesc">Legmagasabb értékelés</option>
-            <option value="ratingAsc">Legalacsonyabb értékelés</option>
-            <option value="title">Cím szerint (A–Z)</option>
-          </select>
-        </div>
-        <div class="book-list" id="bookListContainer"></div>
-      </section>
-    </div>
-
-    <!-- JOBB OSZLOP: AI MEMÓRIA ÉS AJÁNLÓ -->
-    <div style="display:flex; flex-direction:column; gap:20px;">
-      <!-- Állandó AI Memória -->
-      <section class="card">
-        <h2>Állandó AI Olvasói Memória</h2>
-        <p class="subtext">
-          Amit ide írsz, azt az AI minden ajánlásnál kötelezően figyelembe veszi (pl. kedvenc témák, tiltólistás klisék, nyelv).
-        </p>
-        <textarea id="aiMemoryNotes" rows="5" placeholder="Pl.: Szeretem az okos sci-fit, a morálisan szürke karaktereket és a kelet-ázsiai hangulatot. Kerüld a felszínes, klisés BookTok romantikát és a túlírt, feleslegesen elnyújtott sorozatokat."></textarea>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-          <button type="button" id="saveMemoryBtn">Memória mentése</button>
-          <span id="memoryStatusMsg" class="status-msg" style="margin:0;"></span>
-        </div>
-      </section>
-
-      <!-- Gemini API beállítás -->
-      <section class="card">
-        <h2>Gemini AI Kapcsolat (opcionális)</h2>
-        <p class="subtext">
-          Ha megadsz egy ingyenes Google AI Studio API-kulcsot, valódi Gemini AI elemzi a teljes könyvtáradat. Kulcs nélkül beépített intelligens elemző működik.
-        </p>
-        <div style="display:flex; gap:8px;">
-          <input type="password" id="geminiApiKey" placeholder="AIzaSy..." />
-          <button type="button" id="saveApiKeyBtn">Mentés</button>
-        </div>
-        <span id="apiKeyStatus" class="status-msg"></span>
-      </section>
-
-      <!-- AI Könyvajánló Motor -->
-      <section class="card ai-box">
-        <h2>Mit olvassak legközelebb?</h2>
-        <p class="subtext">
-          Az AI átolvassa az összes értékelésedet, a csillagokat, a véleményeidet és a memóriádat, majd indoklással ajánl.
-        </p>
-        <input type="text" id="aiMoodPrompt" placeholder="Aktuális hangulat vagy kérés (opcionális, pl. 'valami pörgős sci-fi' vagy 'válassz a várólistámról')" style="margin-bottom:10px;" />
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="button" class="btn-primary" id="askNewBooksBtn">Új könyvek ajánlása</button>
-          <button type="button" id="askWaitlistBtn">Válassz a várólistámról</button>
-          <button type="button" id="analyzeTasteBtn">Ízlésprofil elemzése</button>
-        </div>
-        <div id="aiResultBox" class="ai-output" style="display:none;"></div>
-      </section>
+<div class="wrap">
+  <div class="box">
+    <h1>Könyvértékeléseim & AI Ajánló</h1>
+    <div class="row">
+      <input type="password" id="apiKeyInput" placeholder="Gemini API kulcs (AIza...)" style="max-width:340px;" />
+      <button type="button" id="saveKeyBtn">Kulcs mentése</button>
+      <button type="button" class="sec" id="exportBtn">JSON mentés</button>
+      <button type="button" class="sec" id="importBtn">JSON betöltés</button>
+      <input type="file" id="importFile" accept=".json" style="display:none;" />
+      <span id="keyStatus" class="msg"></span>
     </div>
   </div>
-</main>
+
+  <!-- MOLY BEILLESZTŐ -->
+  <div class="box">
+    <h2>Moly értékelés beillesztése</h2>
+    <textarea id="molyInput" rows="5" placeholder="Másold ki a Moly.hu-ról az értékelést és illeszd ide..."></textarea>
+    <div class="row">
+      <button type="button" id="addMolyBtn">Beírás a könyveim közé</button>
+      <span id="molyStatus" class="msg"></span>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- ÉRTÉKELÉSEIM -->
+    <div class="box">
+      <h2>Értékeléseim (<span id="bookCount">0</span>)</h2>
+      <div id="booksList"></div>
+    </div>
+
+    <!-- AI AJÁNLÓ -->
+    <div class="box">
+      <h2>AI Mit ajánl nekem?</h2>
+      <textarea id="aiPromptExtra" rows="2" placeholder="Opcionális kérés (pl. most valami rövidebbet, vagy mondd meg mit olvassak)..."></textarea>
+      <div class="row">
+        <button type="button" id="askAiBtn">Küldés az AI-nak</button>
+        <span id="aiStatus" class="msg"></span>
+      </div>
+      <div id="aiOutput" class="ai-out">Az AI itt fog válaszolni az összes értékelésed alapján.</div>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
-  const STORAGE_KEY = "olvaso_naplo_v1";
+  // HA KÖZVETLENÜL A KÓDBA SZERETNÉD ÍRNI AZ AIza... KULCSOT, IDE ÍRD BE:
+  const HARDCODED_API_KEY = "";
 
-  const DEFAULT_DATA = {
-    memory: "Kedvelem az intelligens sci-fit, az egyedi világépítést, a lélektanilag hiteles karaktereket és a kelet-ázsiai regényeket. Nem szeretem a felszínes, sablonos kliséket és az erőltetett szerelmi háromszögeket.",
-    apiKey: "",
+  const KEY = "konyv_ertekelesek_ai_v3";
+
+  const initialData = {
+    apiKey: HARDCODED_API_KEY,
     books: [
       {
-        id: 1700000001,
+        id: 1,
         title: "Vörös lázadás",
         author: "Pierce Brown",
-        status: "read",
-        rating: 5,
-        tags: "sci-fi, disztópia, akció",
-        review: "Brutális tempó, remek karakterfejlődés és feszült politikai játszmák.",
-        createdAt: "2026-10-01T10:00:00Z"
+        rating: "5/5",
+        review: "Pörgős, kemény sci-fi, jó karakterek."
       },
       {
-        id: 1700000002,
-        title: "A Hail Mary-küldetés",
-        author: "Andy Weir",
-        status: "read",
-        rating: 5,
-        tags: "sci-fi, űr, humor",
-        review: "Zseniális tudományos problémamegoldás, szívmelengető barátság, letehetetlen.",
-        createdAt: "2026-10-05T10:00:00Z"
-      },
-      {
-        id: 1700000003,
+        id: 2,
         title: "Piranesi",
         author: "Susanna Clarke",
-        status: "read",
-        rating: 4.5,
-        tags: "fantasy, misztikus, szépirodalom",
-        review: "Különleges, álomszerű atmoszféra és lassan kibomló rejtély.",
-        createdAt: "2026-10-12T10:00:00Z"
-      },
-      {
-        id: 1700000004,
-        title: "Keiko vegyesboltja",
-        author: "Murata Szajaka",
-        status: "read",
-        rating: 4.5,
-        tags: "kortárs, japán, társadalomkritika",
-        review: "Fanyar, pontos látlelet a társadalmi elvárásokról és a kívülállóságról.",
-        createdAt: "2026-10-18T10:00:00Z"
-      },
-      {
-        id: 1700000005,
-        title: "Takarítás a holtak otthonában",
-        author: "Kim Van",
-        status: "read",
-        rating: 4.5,
-        tags: "koreai, tényirodalom, lélektani",
-        review: "Megrázó, mégis tiszteletteljes történetek az emberi magányról.",
-        createdAt: "2026-11-20T10:00:00Z"
-      },
-      {
-        id: 1700000006,
-        title: "Babel",
-        author: "R. F. Kuang",
-        status: "want",
-        rating: 0,
-        tags: "fantasy, történelmi, nyelvészet",
-        review: "Várólistán van, érdekel a nyelvi mágiarendszer és a gyarmatosítás-kritika.",
-        createdAt: "2026-11-22T10:00:00Z"
+        rating: "4.5/5",
+        review: "Különleges hangulat, rejtélyes világ."
       }
     ]
   };
 
-  function loadState() {
+  let data = loadData();
+
+  function loadData() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(KEY);
       if (!raw) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DATA));
-        return JSON.parse(JSON.stringify(DEFAULT_DATA));
+        localStorage.setItem(KEY, JSON.stringify(initialData));
+        return structuredClone(initialData);
       }
-      const parsed = JSON.parse(raw);
+      const p = JSON.parse(raw);
       return {
-        memory: parsed.memory ?? DEFAULT_DATA.memory,
-        apiKey: parsed.apiKey ?? "",
-        books: Array.isArray(parsed.books) ? parsed.books : []
+        apiKey: p.apiKey || HARDCODED_API_KEY || "",
+        books: Array.isArray(p.books) ? p.books : []
       };
-    } catch (e) {
-      return JSON.parse(JSON.stringify(DEFAULT_DATA));
+    } catch {
+      return structuredClone(initialData);
     }
   }
 
-  let state = loadState();
-
-  function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  function saveData() {
+    localStorage.setItem(KEY, JSON.stringify(data));
   }
 
-  // MOLY.HU PARSER
-  function parseMolyText(raw) {
-    const text = raw.replace(/\r\n/g, "\n").trim();
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  function parseMoly(raw) {
+    const lines = raw.replace(/\r\n/g, "\n").split("\n").map(s => s.trim()).filter(Boolean);
+    let title = lines[0] || "Ismeretlen cím";
+    let author = "";
+    let rating = "";
 
-    let title = "Ismeretlen cím";
-    let author = "Ismeretlen szerző";
-    let rating = 0;
-    let status = "read";
+    const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+    if (dash) {
+      title = dash[1].trim();
+      author = dash[2].trim();
+    }
 
-    if (lines.length > 0) {
-      const firstLine = lines[0];
-      const dashMatch = firstLine.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-      if (dashMatch) {
-        title = dashMatch[1].trim();
-        author = dashMatch[2].trim();
-      } else {
-        title = firstLine;
+    const rMatch = raw.match(/(\d+(?:[.,]\d+)?\s*\/\s*5|\d+(?:[.,]\d+)?\s*csillag|★+)/i);
+    if (rMatch) rating = rMatch[0].trim();
+
+    const bodyLines = lines.slice(1).filter(l => {
+      if (author && l === author) return false;
+      if (/^szerző\s*:/i.test(l)) {
+        author = l.replace(/^szerző\s*:/i, "").trim();
+        return false;
       }
-    }
-
-    if (lines[1] && /^szerző\s*:/i.test(lines[1])) {
-      author = lines[1].replace(/^szerző\s*:/i, "").trim();
-    } else if (lines.length >= 2 && author === "Ismeretlen szerző" && lines[1].length < 50 && !/\d\/5|csillag|★/.test(lines[1])) {
-      author = lines[1];
-    }
-
-    if (/várólista|elolvasandó/i.test(text)) status = "want";
-    if (/félbehagyott|abbahagyva/i.test(text)) status = "dnf";
-
-    const slashRating = text.match(/(\d+(?:[.,]\d+)?)\s*\/\s*5/);
-    const starWordRating = text.match(/(\d+(?:[.,]\d+)?)\s*(?:csillag|★)/i);
-    const filledStars = (text.match(/★/g) || []).length;
-
-    if (slashRating) {
-      rating = Math.min(5, Math.max(0, parseFloat(slashRating[1].replace(",", "."))));
-    } else if (starWordRating) {
-      rating = Math.min(5, Math.max(0, parseFloat(starWordRating[1].replace(",", "."))));
-    } else if (filledStars > 0 && filledStars <= 5) {
-      rating = filledStars;
-    }
-
-    const reviewLines = lines.filter((line, idx) => {
-      if (idx === 0) return false;
-      if (idx === 1 && line === author) return false;
-      if (/^szerző\s*:/i.test(line)) return false;
-      if (/^\d+(?:[.,]\d+)?\s*\/\s*5/.test(line)) return false;
-      if (/^\d+(?:[.,]\d+)?\s*csillag/i.test(line)) return false;
-      if (/^[★☆\s]+$/.test(line)) return false;
+      if (/^(\d+(?:[.,]\d+)?\s*\/\s*5|\d+(?:[.,]\d+)?\s*csillag|[★☆\s]+)$/i.test(l)) return false;
       return true;
     });
 
     return {
       id: Date.now(),
       title,
-      author,
-      status,
-      rating,
-      tags: "moly-import",
-      review: reviewLines.join("\n").trim(),
-      createdAt: new Date().toISOString()
+      author: author || "Ismeretlen szerző",
+      rating: rating || "Nincs megadva",
+      review: bodyLines.join("\n")
     };
-  }
-
-  document.getElementById("molyParseBtn").addEventListener("click", () => {
-    const input = document.getElementById("molyRawInput");
-    const msg = document.getElementById("molyStatusMsg");
-    const raw = input.value.trim();
-
-    if (!raw) {
-      msg.style.color = "var(--danger)";
-      msg.textContent = "Előbb illessz be egy Moly.hu értékelést!";
-      return;
-    }
-
-    const parsedBook = parseMolyText(raw);
-    state.books.unshift(parsedBook);
-    saveState();
-    renderBooks();
-
-    input.value = "";
-    msg.style.color = "var(--success)";
-    msg.textContent = `Sikeresen beírva: „${parsedBook.title}” – ${parsedBook.author}${parsedBook.rating ? " (" + parsedBook.rating + "/5)" : ""}`;
-  });
-
-  // MANUÁLIS HOZZÁADÁS / SZERKESZTÉS
-  function resetForm() {
-    document.getElementById("editBookId").value = "";
-    document.getElementById("formHeading").textContent = "Új könyv / értékelés rögzítése";
-    document.getElementById("bookTitle").value = "";
-    document.getElementById("bookAuthor").value = "";
-    document.getElementById("bookStatus").value = "read";
-    document.getElementById("bookRating").value = "5";
-    document.getElementById("bookTags").value = "";
-    document.getElementById("bookReview").value = "";
-    document.getElementById("cancelEditBtn").style.display = "none";
-  }
-
-  document.getElementById("saveBookBtn").addEventListener("click", () => {
-    const title = document.getElementById("bookTitle").value.trim();
-    const author = document.getElementById("bookAuthor").value.trim();
-    if (!title || !author) {
-      alert("A könyv címe és a szerző kötelező!");
-      return;
-    }
-
-    const editId = document.getElementById("editBookId").value;
-    const bookObj = {
-      id: editId ? Number(editId) : Date.now(),
-      title,
-      author,
-      status: document.getElementById("bookStatus").value,
-      rating: parseFloat(document.getElementById("bookRating").value) || 0,
-      tags: document.getElementById("bookTags").value.trim(),
-      review: document.getElementById("bookReview").value.trim(),
-      createdAt: new Date().toISOString()
-    };
-
-    if (editId) {
-      const idx = state.books.findIndex(b => b.id === Number(editId));
-      if (idx !== -1) state.books[idx] = { ...state.books[idx], ...bookObj };
-    } else {
-      state.books.unshift(bookObj);
-    }
-
-    saveState();
-    resetForm();
-    renderBooks();
-  });
-
-  document.getElementById("cancelEditBtn").addEventListener("click", resetForm);
-
-  window.editBook = function (id) {
-    const b = state.books.find(item => item.id === id);
-    if (!b) return;
-    document.getElementById("editBookId").value = b.id;
-    document.getElementById("formHeading").textContent = "Könyv szerkesztése";
-    document.getElementById("bookTitle").value = b.title;
-    document.getElementById("bookAuthor").value = b.author;
-    document.getElementById("bookStatus").value = b.status;
-    document.getElementById("bookRating").value = String(b.rating || 0);
-    document.getElementById("bookTags").value = b.tags || "";
-    document.getElementById("bookReview").value = b.review || "";
-    document.getElementById("cancelEditBtn").style.display = "inline-block";
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  window.deleteBook = function (id) {
-    if (!confirm("Biztosan törlöd ezt a könyvet?")) return;
-    state.books = state.books.filter(item => item.id !== id);
-    saveState();
-    renderBooks();
-  };
-
-  // LISTA RENDERELÉS
-  function formatStars(rating) {
-    if (!rating || rating <= 0) return "<span style='color:#94a3b8;font-size:12px;'>Nincs értékelve</span>";
-    const full = Math.floor(rating);
-    const half = rating % 1 >= 0.5 ? "½" : "";
-    return `<span class="stars">${"★".repeat(full)}${half}</span> <span style="font-size:12px;color:#475569;">(${rating}/5)</span>`;
   }
 
   function renderBooks() {
-    const query = document.getElementById("searchInput").value.toLowerCase().trim();
-    const statusFilter = document.getElementById("filterStatus").value;
-    const sortOrder = document.getElementById("sortOrder").value;
-
-    const readCount = state.books.filter(b => b.status === "read").length;
-    const wantCount = state.books.filter(b => b.status === "want").length;
-    const rated = state.books.filter(b => b.rating > 0);
-    const avg = rated.length ? (rated.reduce((s, b) => s + b.rating, 0) / rated.length).toFixed(2) : "–";
-
-    document.getElementById("statsRow").innerHTML = `
-      <span>Összesen: <strong>${state.books.length}</strong></span>
-      <span>Olvasott: <strong>${readCount}</strong></span>
-      <span>Várólistás: <strong>${wantCount}</strong></span>
-      <span>Átlagos értékelés: <strong>${avg}</strong></span>
-    `;
-
-    let filtered = state.books.filter(b => {
-      if (statusFilter !== "all" && b.status !== statusFilter) return false;
-      if (query) {
-        const hay = `${b.title} ${b.author} ${b.tags || ""} ${b.review || ""}`.toLowerCase();
-        if (!hay.includes(query)) return false;
-      }
-      return true;
-    });
-
-    filtered.sort((a, b) => {
-      if (sortOrder === "ratingDesc") return (b.rating || 0) - (a.rating || 0);
-      if (sortOrder === "ratingAsc") return (a.rating || 0) - (b.rating || 0);
-      if (sortOrder === "title") return a.title.localeCompare(b.title, "hu");
-      return (b.id || 0) - (a.id || 0);
-    });
-
-    const container = document.getElementById("bookListContainer");
-    if (!filtered.length) {
-      container.innerHTML = `<p class="subtext">Nincs a szűrésnek megfelelő könyv.</p>`;
+    document.getElementById("bookCount").textContent = data.books.length;
+    const el = document.getElementById("booksList");
+    if (!data.books.length) {
+      el.innerHTML = "<p class='meta'>Még nincs beírt könyv.</p>";
       return;
     }
-
-    const statusLabels = {
-      read: `<span class="badge badge-read">Olvasott</span>`,
-      want: `<span class="badge badge-want">Várólistás</span>`,
-      dnf: `<span class="badge badge-dnf">Félbehagyott</span>`
-    };
-
-    container.innerHTML = filtered.map(b => `
-      <div class="book-item">
-        <div class="book-top">
-          <div>
-            <p class="book-title">${escapeHtml(b.title)} ${statusLabels[b.status] || ""}</p>
-            <p class="book-author">${escapeHtml(b.author)} ${b.tags ? " • " + escapeHtml(b.tags) : ""}</p>
-          </div>
-          <div>${formatStars(b.rating)}</div>
+    el.innerHTML = data.books.map(b => `
+      <div class="book">
+        <div class="book-head">
+          <span>${esc(b.title)}</span>
+          <span>${esc(b.rating)}</span>
         </div>
-        ${b.review ? `<div class="book-review">${escapeHtml(b.review)}</div>` : ""}
-        <div class="book-actions">
-          <button type="button" onclick="editBook(${b.id})">Szerkesztés</button>
-          <button type="button" class="btn-danger" onclick="deleteBook(${b.id})">Törlés</button>
+        <div class="meta">${esc(b.author)}</div>
+        ${b.review ? `<div class="review">${esc(b.review)}</div>` : ""}
+        <div class="row">
+          <button type="button" class="sec" onclick="delBook(${b.id})">Törlés</button>
         </div>
       </div>
     `).join("");
   }
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&")
-      .replace(/</g, "<")
-      .replace(/>/g, ">")
-      .replace(/"/g, """);
+  window.delBook = function (id) {
+    data.books = data.books.filter(b => b.id !== id);
+    saveData();
+    renderBooks();
+  };
+
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, m => ({
+      "&": "&", "<": "<", ">": ">", '"': """, "'": "'"
+    }[m]));
   }
 
-  document.getElementById("searchInput").addEventListener("input", renderBooks);
-  document.getElementById("filterStatus").addEventListener("change", renderBooks);
-  document.getElementById("sortOrder").addEventListener("change", renderBooks);
+  document.getElementById("apiKeyInput").value = data.apiKey;
+  if (data.apiKey) document.getElementById("keyStatus").textContent = "Kulcs elmentve.";
 
-  // AI MEMÓRIA ÉS API KULCS
-  document.getElementById("aiMemoryNotes").value = state.memory;
-  document.getElementById("geminiApiKey").value = state.apiKey;
-  if (state.apiKey) {
-    document.getElementById("apiKeyStatus").style.color = "var(--success)";
-    document.getElementById("apiKeyStatus").textContent = "API kulcs elmentve – élő Gemini AI aktív.";
-  }
-
-  document.getElementById("saveMemoryBtn").addEventListener("click", () => {
-    state.memory = document.getElementById("aiMemoryNotes").value.trim();
-    saveState();
-    const s = document.getElementById("memoryStatusMsg");
-    s.style.color = "var(--success)";
-    s.textContent = "Memória elmentve!";
-    setTimeout(() => (s.textContent = ""), 2500);
+  document.getElementById("saveKeyBtn").addEventListener("click", () => {
+    data.apiKey = document.getElementById("apiKeyInput").value.trim();
+    saveData();
+    document.getElementById("keyStatus").textContent = data.apiKey ? "Kulcs elmentve." : "Kulcs törölve.";
   });
 
-  document.getElementById("saveApiKeyBtn").addEventListener("click", () => {
-    state.apiKey = document.getElementById("geminiApiKey").value.trim();
-    saveState();
-    const s = document.getElementById("apiKeyStatus");
-    if (state.apiKey) {
-      s.style.color = "var(--success)";
-      s.textContent = "API kulcs elmentve – élő Gemini AI aktív.";
-    } else {
-      s.style.color = "var(--muted)";
-      s.textContent = "Kulcs törölve – helyi ajánlómotor aktív.";
+  document.getElementById("addMolyBtn").addEventListener("click", () => {
+    const inp = document.getElementById("molyInput");
+    const st = document.getElementById("molyStatus");
+    if (!inp.value.trim()) {
+      st.textContent = "Írj vagy illessz be valamit!";
+      return;
+    }
+    const item = parseMoly(inp.value);
+    data.books.unshift(item);
+    saveData();
+    renderBooks();
+    inp.value = "";
+    st.textContent = `Beírva: ${item.title} (${item.rating})`;
+  });
+
+  document.getElementById("askAiBtn").addEventListener("click", async () => {
+    const out = document.getElementById("aiOutput");
+    const st = document.getElementById("aiStatus");
+    const activeKey = (data.apiKey || HARDCODED_API_KEY || "").trim();
+
+    if (!activeKey) {
+      out.textContent = "Nincs beállítva AIza... kezdetű Gemini API kulcs.";
+      return;
+    }
+
+    st.textContent = "Küldés...";
+    out.textContent = "Gondolkodom az összes értékelésed alapján...";
+
+    const allReviewsText = data.books.map((b, i) =>
+      `${i + 1}. Cím: ${b.title} | Szerző: ${b.author} | Értékelés: ${b.rating}\nVélemény: ${b.review || "(nincs szöveg)"}`
+    ).join("\n\n");
+
+    const extra = document.getElementById("aiPromptExtra").value.trim();
+
+    const prompt = [
+      "Te egy személyes könyvajánló AI vagy. Az alábbiakban látod a felhasználó ÖSSZES könyvértékelését.",
+      "Elemezd ki, mi tetszik neki és mi nem, majd ajánlj neki könyveket, és indokold meg konkrétan a korábbi értékelései alapján.",
+      extra ? `Külön kérés: ${extra}` : "",
+      "\n--- FELHASZNÁLÓ ÉRTÉKELÉSEI ---\n" + (allReviewsText || "Még nincs értékelés.")
+    ].filter(Boolean).join("\n");
+
+    try {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+
+      const json = await resp.json();
+      if (!resp.ok) {
+        out.textContent = "Hiba a Gemini API-tól: " + (json?.error?.message || resp.status);
+        st.textContent = "Hiba";
+        return;
+      }
+
+      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || "Nem érkezett szöveges válasz.";
+      out.textContent = text;
+      st.textContent = "Kész";
+    } catch (e) {
+      out.textContent = "Hálózati / fetch hiba: " + e.message;
+      st.textContent = "Hiba";
     }
   });
 
-  // AI AJÁNLÓ MOTOR (Gemini API + Helyi intelligens tartalék)
-  async function runAiEngine(mode) {
-    const out = document.getElementById("aiResultBox");
-    out.style.display = "block";
-    out.textContent = "Elemzem az összes könyvedet, értékelésedet és az olvasói memóriádat...";
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "konyv-ertekelesek.json";
+    a.click();
+  });
 
-    const mood = document.getElementById("aiMoodPrompt").value.trim();
-    const readBooks = state.books.filter(b => b.status === "read");
-    const wantBooks = state.books.filter(b => b.status === "want");
-    const dnfBooks = state.books.filter(b => b.status === "dnf");
+  document.getElementById("importBtn").addEventListener("click", () => {
+    document.getElementById("importFile").click();
+  });
 
-    const booksSummary = state.books.map(b =>
-      `- ${b.title} (${b.author}) | Státusz: ${b.status} | Értékelés: ${b.rating}/5 | Címkék: ${b.tags || "-"} | Vélemény: ${b.review || "nincs"}`
-    ).join("\n");
+  document.getElementById("importFile").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const p = JSON.parse(r.result);
+        data = { apiKey: p.apiKey || data.apiKey, books: Array.isArray(p.books) ? p.books : [] };
+        saveData();
+        document.getElementById("apiKeyInput").value = data.apiKey;
+        renderBooks();
+      } catch {
+        alert("Hibás JSON fájl.");
+      }
+    };
+    r.readAsText(f);
+  });
 
-    let taskInstruction = "";
-    if (mode === "new") {
-      taskInstruction = "Ajánlj 5 olyan könyvet, amely MÉG NINCS a listámban! Minden ajánlásnál pontosan hivatkozz arra, hogy melyik korábbi könyvem és értékelésem miatt fog tetszeni, és figyelj az elkerülendő dolgokra is.";
-    } else if (mode === "waitlist") {
-      taskInstruction = "Nézd át a 'want' (várólistás) státuszú könyveimet, és rangsorold őket a korábbi magas értékeléseim és az aktuális hangulatom alapján. Mondd meg, melyikkel kezdjem és miért!";
-    } else {
-      task
+  renderBooks();
+})();
+</script>
+</body>
+</html>
