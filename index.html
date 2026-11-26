@@ -81,7 +81,127 @@
             </div>
         </div>
     </div>
+<div id="moly-quick-paste-widget" style="max-width:720px;margin:20px auto;padding:16px;border:1px solid #d1d5db;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;background:#ffffff;color:#111827;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+  <h3 style="margin:0 0 8px;font-size:18px;">Moly.hu értékelés gyors beírása</h3>
+  <p style="margin:0 0 10px;font-size:13px;color:#4b5563;">
+    Másold ki a Moly.hu-ról a könyv értékelését (cím, szerző, csillagok, szöveg), illeszd be ide, majd kattints a beírásra.
+  </p>
 
+  <textarea id="molyRawInput" rows="6" placeholder="Példa:
+Vörös lázadás - Pierce Brown
+5/5 csillag
+Nagyon ütős sci-fi..." style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #9ca3af;border-radius:8px;font-size:14px;resize:vertical;"></textarea>
+
+  <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+    <button type="button" id="molyParseAndSaveBtn" style="padding:9px 16px;border:none;border-radius:8px;background:#111827;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer;">
+      Beírás a könyveim közé
+    </button>
+    <span id="molyStatusMsg" style="font-size:13px;color:#065f46;"></span>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Ha a meglévő kódod más localStorage kulcsot használ, írd át itt:
+  const POSSIBLE_KEYS = ["books", "konyvek", "moly_books", "olvaso_konyvek", "readingList"];
+
+  function findStorageKey() {
+    for (const k of POSSIBLE_KEYS) {
+      if (localStorage.getItem(k) !== null) return k;
+    }
+    return "books";
+  }
+
+  function parseMolyText(raw) {
+    const text = raw.replace(/\r\n/g, "\n").trim();
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+    let title = "Ismeretlen cím";
+    let author = "Ismeretlen szerző";
+    let rating = null;
+
+    // 1. sor elemzése: pl. "Cím - Szerző" vagy "Cím – Szerző" vagy csak "Cím"
+    if (lines.length > 0) {
+      const firstLine = lines[0];
+      const dashMatch = firstLine.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+      if (dashMatch) {
+        title = dashMatch[1].trim();
+        author = dashMatch[2].trim();
+      } else {
+        title = firstLine;
+      }
+    }
+
+    // Második sor, ha "Szerző: ..." vagy röviden névnek tűnik
+    if (lines[1] && /^szerző\s*:/i.test(lines[1])) {
+      author = lines[1].replace(/^szerző\s*:/i, "").trim();
+    }
+
+    // Csillag / értékelés keresése (pl. 4/5, 4,5/5, 5 csillag, ★★★★☆)
+    const slashRating = text.match(/(\d+(?:[.,]\d+)?)\s*\/\s*5/);
+    const starWordRating = text.match(/(\d+(?:[.,]\d+)?)\s*(?:csillag|★)/i);
+    const filledStars = (text.match(/★/g) || []).length;
+
+    if (slashRating) {
+      rating = parseFloat(slashRating[1].replace(",", "."));
+    } else if (starWordRating) {
+      rating = parseFloat(starWordRating[1].replace(",", "."));
+    } else if (filledStars > 0 && filledStars <= 5) {
+      rating = filledStars;
+    }
+
+    // Vélemény szöveg: kivesszük az első sort és az értékeléses sorokat
+    const reviewLines = lines.filter((line, idx) => {
+      if (idx === 0) return false;
+      if (/^szerző\s*:/i.test(line)) return false;
+      if (/^\d+(?:[.,]\d+)?\s*\/\s*5/.test(line)) return false;
+      if (/^\d+(?:[.,]\d+)?\s*csillag/i.test(line)) return false;
+      if (/^[★☆\s]+$/.test(line)) return false;
+      return true;
+    });
+
+    return {
+      id: Date.now(),
+      title,
+      author,
+      rating,
+      review: reviewLines.join("\n").trim(),
+      source: "moly",
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  document.getElementById("molyParseAndSaveBtn").addEventListener("click", function () {
+    const inputEl = document.getElementById("molyRawInput");
+    const msgEl = document.getElementById("molyStatusMsg");
+    const raw = inputEl.value.trim();
+
+    if (!raw) {
+      msgEl.style.color = "#b91c1c";
+      msgEl.textContent = "Előbb illessz be egy Moly-értékelést!";
+      return;
+    }
+
+    const entry = parseMolyText(raw);
+    const key = findStorageKey();
+
+    let currentList = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(parsed)) currentList = parsed;
+    } catch (e) {
+      currentList = [];
+    }
+
+    currentList.unshift(entry);
+    localStorage.setItem(key, JSON.stringify(currentList));
+
+    msgEl.style.color = "#065f46";
+    msgEl.textContent = `Beírva (${key}): "${entry.title}" – ${entry.author}${entry.rating ? " (" + entry.rating + "/5)" : ""}`;
+    inputEl.value = "";
+  });
+})();
+</script>
     <!-- Könyv hozzáadása / szerkesztése Modális ablak -->
     <div id="book-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
         <div class="bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl my-8 fade-in">
