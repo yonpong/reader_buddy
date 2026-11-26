@@ -84,9 +84,12 @@
   <div class="box">
     <h1>Könyvértékeléseim & AI Ajánló</h1>
     <div class="row">
+      <input type="password" id="apiKeyInput" placeholder="Gemini API kulcs (AIza...)" style="max-width:320px;" />
+      <button type="button" id="saveKeyBtn">Kulcs mentése</button>
       <button type="button" class="sec" id="exportBtn">JSON mentés</button>
       <button type="button" class="sec" id="importBtn">JSON betöltés</button>
       <input type="file" id="importFile" accept=".json" style="display:none;" />
+      <span id="keyStatus" class="msg"></span>
     </div>
   </div>
 
@@ -122,10 +125,11 @@
 
 <script>
 (function () {
-  // IDE ÍRD BE A SAJÁT AIza... KEZDETŰ GEMINI API KULCSODAT:
-  const GEMINI_API_KEY = "";
+  // Build lépésben vagy kézzel cserélhető helyőrző a GEMINIAPIKEY secret számára:
+  const INJECTED_GEMINI_KEY = "__GEMINIAPIKEY__";
+  const ENV_KEY = INJECTED_GEMINI_KEY.startsWith("__") ? "" : INJECTED_GEMINI_KEY;
 
-  const STORAGE_KEY = "konyv_ertekelesek_fix_v1";
+  const STORAGE_KEY = "konyv_ertekelesek_env_v1";
 
   const defaultBooks = [
     {
@@ -144,24 +148,32 @@
     }
   ];
 
-  let books = loadBooks();
+  let state = loadState();
 
-  function loadBooks() {
+  function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultBooks));
-        return structuredClone(defaultBooks);
+        const init = { apiKey: ENV_KEY, books: structuredClone(defaultBooks) };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(init));
+        return init;
       }
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      return {
+        apiKey: parsed.apiKey || ENV_KEY || "",
+        books: Array.isArray(parsed.books) ? parsed.books : []
+      };
     } catch {
-      return structuredClone(defaultBooks);
+      return { apiKey: ENV_KEY || "", books: structuredClone(defaultBooks) };
     }
   }
 
-  function saveBooks() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function getActiveKey() {
+    return (state.apiKey || ENV_KEY || "").trim();
   }
 
   function parseMoly(raw) {
@@ -199,13 +211,13 @@
   }
 
   function renderBooks() {
-    document.getElementById("bookCount").textContent = books.length;
+    document.getElementById("bookCount").textContent = state.books.length;
     const el = document.getElementById("booksList");
-    if (!books.length) {
+    if (!state.books.length) {
       el.innerHTML = "<p class='meta'>Még nincs beírt könyv.</p>";
       return;
     }
-    el.innerHTML = books.map(b => `
+    el.innerHTML = state.books.map(b => `
       <div class="book">
         <div class="book-head">
           <span>${esc(b.title)}</span>
@@ -221,8 +233,8 @@
   }
 
   window.delBook = function (id) {
-    books = books.filter(b => b.id !== id);
-    saveBooks();
+    state.books = state.books.filter(b => b.id !== id);
+    saveState();
     renderBooks();
   };
 
@@ -232,6 +244,17 @@
     }[m]));
   }
 
+  document.getElementById("apiKeyInput").value = state.apiKey;
+  if (getActiveKey()) {
+    document.getElementById("keyStatus").textContent = "Kulcs aktív.";
+  }
+
+  document.getElementById("saveKeyBtn").addEventListener("click", () => {
+    state.apiKey = document.getElementById("apiKeyInput").value.trim();
+    saveState();
+    document.getElementById("keyStatus").textContent = getActiveKey() ? "Kulcs elmentve." : "Kulcs törölve.";
+  });
+
   document.getElementById("addMolyBtn").addEventListener("click", () => {
     const inp = document.getElementById("molyInput");
     const st = document.getElementById("molyStatus");
@@ -240,8 +263,8 @@
       return;
     }
     const item = parseMoly(inp.value);
-    books.unshift(item);
-    saveBooks();
+    state.books.unshift(item);
+    saveState();
     renderBooks();
     inp.value = "";
     st.textContent = `Beírva: ${item.title} (${item.rating})`;
@@ -250,16 +273,17 @@
   document.getElementById("askAiBtn").addEventListener("click", async () => {
     const out = document.getElementById("aiOutput");
     const st = document.getElementById("aiStatus");
+    const apiKey = getActiveKey();
 
-    if (!GEMINI_API_KEY || !GEMINI_API_KEY.trim()) {
-      out.textContent = "Hiányzik a GEMINI_API_KEY a kódból (a <script> elején lévő idézőjelek közé írd be az AIza... kulcsot).";
+    if (!apiKey) {
+      out.textContent = "Nincs beállítva kulcs. A sima statikus böngészős index.html nem látja automatikusan a secret környezeti változót — add meg a kulcsot a felső mezőben vagy cseréld le build közben.";
       return;
     }
 
     st.textContent = "Küldés...";
     out.textContent = "Gondolkodom az összes értékelésed alapján...";
 
-    const allReviewsText = books.map((b, i) =>
+    const allReviewsText = state.books.map((b, i) =>
       `${i + 1}. Cím: ${b.title} | Szerző: ${b.author} | Értékelés: ${b.rating}\nVélemény: ${b.review || "(nincs szöveg)"}`
     ).join("\n\n");
 
@@ -274,7 +298,7 @@
 
     try {
       const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY.trim())}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -301,7 +325,7 @@
   });
 
   document.getElementById("exportBtn").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(books, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(state.books, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "konyv-ertekelesek.json";
@@ -319,8 +343,8 @@
     r.onload = () => {
       try {
         const parsed = JSON.parse(r.result);
-        books = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.books) ? parsed.books : []);
-        saveBooks();
+        state.books = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.books) ? parsed.books : []);
+        saveState();
         renderBooks();
       } catch {
         alert("Hibás JSON fájl.");
