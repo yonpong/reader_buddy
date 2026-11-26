@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="hu" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olvasónapló & AI Ajánló</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                    },
+                    colors: {
+                        paper: {
+                            50: '#FDFBF7',
+                            100: '#F7F3EB',
+                            200: '#EFE8D8',
+                            800: '#26231E',
+                            900: '#1A1815',
+                        },
+                        gold: {
+                            500: '#C59B27',
+                            600: '#A67F1A',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Egyedi görgetősáv és finom animációk */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+        .fade-in {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .star-btn {
+            transition: transform 0.1s ease;
+        }
+        .star-btn:hover {
+            transform: scale(1.15);
+        }
+    </style>
+</head>
+<body class="bg-paper-50 text-stone-800 dark:bg-slate-950 dark:text-stone-100 min-h-screen transition-colors duration-200 selection:bg-amber-200 dark:selection:bg-amber-900">
+
+    <!-- Értesítő sáv (Toast / Modal üzenetekhez, alert() helyett) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Megerősítő ablak (confirm() helyett) -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl fade-in">
+            <h3 id="confirm-title" class="text-lg font-serif font-bold text-stone-900 dark:text-white mb-2">Megerősítés</h3>
+            <p id="confirm-message" class="text-sm text-stone-600 dark:text-stone-300 mb-6">Biztosan végrehajtod ezt a műveletet?</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirm-cancel" class="px-4 py-2 rounded-xl text-sm font-medium text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition">Mégse</button>
+                <button id="confirm-ok" class="px-4 py-2 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 text-white shadow-sm transition">Törlés</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Könyv hozzáadása / szerkesztése Modális ablak -->
+    <div id="book-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 md:p-8 shadow-2xl my-8 fade-in">
+            <div class="flex items-center justify-between border-b border-stone-200 dark:border-slate-800 pb-4 mb-6">
+                <h2 id="book-modal-title" class="text-xl font-serif font-bold text-stone-900 dark:text-white">Új könyv rögzítése</h2>
+                <button onclick="closeBookModal()" class="p-2 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <form id="book-form" class="space-y-5">
+                <input type="hidden" id="book-id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">Könyv címe *</label>
+                        <input type="text" id="book-title" required placeholder="pl. A Hail Mary-küldetés" class="w-full px-4 py-2.5 rounded-xl bg-paper-50 dark:bg-slate-800/80 border border-stone-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">Szerző *</label>
+                        <input type="text" id="book-author" required placeholder="pl. Andy Weir" class="w-full px-4 py-2.5 rounded-xl bg-paper-50 dark:bg-slate-800/80 border border-stone-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">Státusz</label>
+                        <select id="book-status" onchange="toggleRatingVisibility()" class="w-full px-4 py-2.5 rounded-xl bg-paper-50 dark:bg-slate-800/80 border border-stone-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
+                            <option value="read">Olvasott</option>
+                            <option value="tbr">Várólista (TBR)</option>
+                            <option value="dnf">Félbehagyott (DNF)</option>
+                        </select>
+                    </div>
+                    <div id="rating-field-container">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">Értékelés (1–5 csillag)</label>
+                        <div class="flex items-center gap-1.5 py-1.5" id="star-selector">
+                            <button type="button" data-val="1" class="star-btn text-2xl text-amber-400 focus:outline-none">★</button>
+                            <button type="button" data-val="2" class="star-btn text-2xl text-amber-400 focus:outline-none">★</button>
+                            <button type="button" data-val="3" class="star-btn text-2xl text-amber-400 focus:outline-none">★</button>
+                            <button type="button" data-val="4" class="star-btn text-2xl text-amber-400 focus:outline-none">★</button>
+                            <button type="button" data-val="5" class="star-btn text-2xl text-amber-400 focus:outline-none">★</button>
+                            <span id="rating-text" class="ml-2 text-xs font-medium text-stone-500 dark:text-stone-400">5 / 5</span>
+                        </div>
+                        <input type="hidden" id="book-rating" value="5">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">Műfajok & címkék (vesszővel elválasztva)</label>
+                    <input type="text" id="book-genres" placeholder="pl. Sci-fi, Pörgős, Űrutazás, Humor" class="w-full px-4 py-2.5 rounded-xl bg-paper-50 dark:bg-slate-800/80 border border-stone-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-1.5">
+                        Részletes vélemény / AI-nak szóló megjegyzés
+                        <span class="normal-case font-normal text-stone-400 ml-1">(Mi tetszett, mi nem? Tempó, karakterek, stílus?)</span>
+                    </label>
+                    <textarea id="book-review" rows="4" placeholder="Írd le őszintén, mit szerettél vagy utáltál benne – az AI ebből tanulja meg az ízlésedet!" class="w-full px-4 py-2.5 rounded-xl bg-paper-50 dark:bg-slate-800/80 border border-stone-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-stone-200 dark:border-slate-800">
+                    <button type="button" onclick="closeBookModal()" class="px-5 py-2.5 rounded-xl text-sm font-medium text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition">Mégse</button>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20 transition">Mentés a könyvtárba</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fejléc / Navigáció -->
+    <header class="sticky top-0 z-30 bg-paper-50/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-stone-200/80 dark:border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-md shadow-amber-600/20">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                </div>
+                <div>
+                    <h1 class="font-serif font-bold text-lg sm:text-xl tracking-tight text-stone-900 dark:text-white leading-none">Olvasónapló <span class="text-amber-600 dark:text-amber-400">& AI Ajánló</span></h1>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span id="sync-badge" class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Memória aktív
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- JSON Export / Import -->
+                <div class="hidden sm:flex items-center gap-1 bg-stone-100 dark:bg-slate-900 p-1 rounded-xl border border-stone-200/70 dark:border-slate-800">
+                    <button onclick="exportData()" title="Biztonsági mentés letöltése (JSON)" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Export
+                    </button>
+                    <label title="Mentés visszatöltése (JSON)" class="cursor-pointer px-2.5 py-1.5 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Import
+                        <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                    </label>
+                </div>
+
+                <!-- Témaváltó -->
+                <button onclick="toggleTheme()" title="Sötét / Világos mód váltása" class="p-2.5 rounded-xl bg-stone-100 dark:bg-slate-900 border border-stone-200/70 dark:border-slate-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70 dark:hover:bg-slate-800 transition">
+                    <svg id="sun-icon" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg id="moon-icon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+
+                <!-- Új könyv gomb -->
+                <button onclick="openBookModal()" class="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shadow-md shadow-amber-600/20 transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span class="hidden sm:inline">Új könyv</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Fő tartalom -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        <!-- Statisztikai sáv -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
+            <div class="bg-white dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <div class="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">Olvasott könyvek</div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                    <span id="stat-read" class="text-2xl sm:text-3xl font-serif font-bold text-stone-900 dark:text-white">0</span>
+                    <span class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Befejezett</span>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <div class="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">Átlagos értékelés</div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                    <span id="stat-avg" class="text-2xl sm:text-3xl font-serif font-bold text-amber-600 dark:text-amber-400">0.0</span>
+                    <span class="text-xs text-amber-500 font-medium">★★★★★</span>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <div class="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">Várólista (TBR)</div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                    <span id="stat-tbr" class="text-2xl sm:text-3xl font-serif font-bold text-stone-900 dark:text-white">0</span>
+                    <span class="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Olvasásra vár</span>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <div class="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">Félbehagyott</div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                    <span id="stat-dnf" class="text-2xl sm:text-3xl font-serif font-bold text-stone-900 dark:text-white">0</span>
+                    <span class="text-xs text-rose-500 font-medium">AI kizárás alap</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kétoszlopos elrendezés: Bal oldalon Könyvtár, Jobb oldalon AI Memória & Ajánló -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- BAL OSZLOP: Könyvtár és Értékelések (7/12) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Kereső és Szűrő sáv -->
+                <div class="bg-white dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="relative">
+                        <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input type="text" id="search-input" oninput="renderBooks()" placeholder="Keresés cím, szerző, műfaj vagy vélemény alapján..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-paper-50 dark:bg-slate-800/80 border border-stone-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <!-- Státusz fülek -->
+                        <div class="flex flex-wrap gap-1.5" id="status-filters">
+                            <button onclick="setStatusFilter('all')" data-status="all" class="filter-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-900 text-white dark:bg-amber-600 transition">Összes</button>
+                            <button onclick="setStatusFilter('read')" data-status="read" class="filter-pill px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 text-stone-600 dark:bg-slate-800 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-slate-700 transition">Olvasott</button>
+                            <button onclick="setStatusFilter('tbr')" data-status="tbr" class="filter-pill px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 text-stone-600 dark:bg-slate-800 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-slate-700 transition">Várólista</button>
+                            <button onclick="setStatusFilter('dnf')" data-status="dnf" class="filter-pill px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 text-stone-600 dark:bg-slate-800 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-slate-700 transition">Félbehagyott</button>
+                        </div>
+
+                        <!-- Értékelés és műfaj szűrő -->
+                        <div class="flex items-center gap-2">
+                            <select id="genre-filter" onchange="renderBooks()" class="px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-slate-800 border-none text-xs font-medium text-stone-700 dark:text-stone-300 focus:ring-2 focus:ring-amber-500/50">
+                                <option value="all">Minden műfaj</option>
+                            </select>
+                            <select id="rating-filter" onchange="renderBooks()" class="px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-slate-800 border-none text-xs font-medium text-stone-700 dark:text-stone-300 focus:ring-2 focus:ring-amber-500/50">
+                                <option value="all">Minden értékelés</option>
+                                <option value="5">5 ★</option>
+                                <option value="4">4+ ★</option>
+                                <option value="3">3 vagy kevesebb ★</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Könyvek listája -->
+                <div id="books-list" class="space-y-4">
+                    <!-- Dinamikusan generált kártyák -->
+                </div>
+            </div>
+
+            <!-- JOBB OSZLOP: AI Memória & Könyvajánló Motor (5/12) -->
+            <div class="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+                
+                <!-- 1. Élő Olvasói Ízlésprofil (AI Memória Panel) -->
+                <div class="bg-white dark:bg-slate-900 border border-stone-200/90 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            </div>
+                            <div>
+                                <h2 class="font-serif font-bold text-base text-stone-900 dark:text-white">Élő Olvasói Ízlésprofil</h2>
+                                <p class="text-[11px] text-stone-500 dark:text-stone-400">Ezt tudja rólad az AI minden ajánlásnál</p>
+                            </div>
+                        </div>
+                        <button onclick="refreshTasteProfileWithAI()" id="refresh-profile-btn" title="Profil frissítése az összes értékelésed alapján" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            AI Elemzés
+                        </button>
+                    </div>
+
+                    <!-- Automatikus + AI összegzett profil -->
+                    <div id="taste-summary-box" class="bg-paper-100/80 dark:bg-slate-800/60 rounded-xl p-3.5 text-xs text-stone-700 dark:text-stone-300 space-y-2 mb-4 border border-stone-200/60 dark:border-slate-700/60">
+                        <!-- Dinamikusan töltődik -->
+                    </div>
+
+                    <!-- Manuális AI memóriajegyzetek / szabályok -->
+                    <div>
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-1.5">
+                            Állandó AI memóriajegyzetek & tiltólista
+                        </label>
+                        <div class="flex gap-2 mb-2.5">
+                            <input type="text" id="memory-note-input" placeholder="pl. Kerüld a túl lassú, leíró regényeket..." class="flex-1 px-3 py-2 rounded-xl bg-paper-50 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/50" onkeydown="if(event.key==='Enter'){event.preventDefault(); addMemoryNote();}">
+                            <button onclick="addMemoryNote()" class="px-3 py-2 rounded-xl bg-stone-800 dark:bg-slate-700 hover:bg-stone-900 dark:hover:bg-slate-600 text-white text-xs font-medium transition">Hozzáad</button>
+                        </div>
+                        <div id="memory-notes-list" class="flex flex-wrap gap-1.5">
+                            <!-- Dinamikus memóriajegyzet chipek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Integrált AI Könyvajánló Motor -->
+                <div class="bg-gradient-to-b from-white to-paper-100/50 dark:from-slate-900 dark:to-slate-900/95 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl p-5 sm:p-6 shadow-md">
+                    <div class="flex items-center gap-2.5 mb-3">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-serif font-bold text-base text-stone-900 dark:text-white">AI Könyvajánló Motor</h2>
+                            <p class="text-[11px] text-stone-500 dark:text-stone-400">Teljes előzményed és ízlésed alapján</p>
+                        </div>
+                    </div>
+
+                    <!-- Hangulatszűrő / Extra kérés -->
+                    <div class="mb-4">
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-1.5">
+                            Aktuális hangulat vagy konkrét kérés (opcionális)
+                        </label>
+                        <input type="text" id="ai-mood-input" placeholder="pl. Valami pörgős, rövid sci-fi, vagy lélektani dráma..." class="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                    </div>
+
+                    <!-- Két ajánlási mód gomb -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <button onclick="getAIRecommendations('new')" id="btn-rec-new" class="px-4 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-md shadow-amber-600/20 transition flex items-center justify-center gap-2 text-center">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                            <span>Új könyvek ajánlása</span>
+                        </button>
+                        <button onclick="getAIRecommendations('tbr')" id="btn-rec-tbr" class="px-4 py-3 rounded-xl bg-stone-900 dark:bg-slate-800 hover:bg-stone-800 dark:hover:bg-slate-700 text-white border border-stone-700 text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2 text-center">
+                            <svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                            <span>Melyiket olvassam a várólistámról?</span>
+                        </button>
+                    </div>
+
+                    <!-- AI Eredmények konténer -->
+                    <div id="ai-results-container" class="mt-5 hidden">
+                        <div class="border-t border-stone-200/80 dark:border-slate-800 pt-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 id="ai-results-heading" class="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Személyre szabott ajánlások</h3>
+                                <button onclick="document.getElementById('ai-results-container').classList.add('hidden')" class="text-[11px] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">Bezárás</button>
+                            </div>
+                            <div id="ai-results-list" class="space-y-3">
+                                <!-- AI ajánlás kártyák -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobil JSON Export/Import sáv -->
+                <div class="flex sm:hidden items-center justify-center gap-3 pt-2">
+                    <button onclick="exportData()" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-xs font-medium text-stone-600 dark:text-stone-300">JSON Export</button>
+                    <label class="cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-xs font-medium text-stone-600 dark:text-stone-300">
+                        JSON Import
+                        <input type="file" accept=".json" class="hidden" onchange="importData(event)">
+                    </label>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK és Alkalmazás Logika -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBÁLIS ÁLLAPOT ---
+        const apiKey = ""; // A futtatókörnyezet automatikusan biztosítja
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let useFirestore = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'olvasonaplo-ai-app';
+
+        // Alapértelmezett, gazdag magyar nyelvű induló mintaadatok
+        const DEFAULT_BOOKS = [
+            {
+                id: 'book-1',
+                title: 'Vörös lázadás',
+                author: 'Pierce Brown',
+                status: 'read',
+                rating: 5,
+                genres: ['Sci-fi', 'Disztópia', 'Pörgős', 'Akció'],
+                review: 'Elképesztően feszes tempó, azonnal beszippantott. Darrow karakterfejlődése és a kasztrendszer elleni lázadás dinamikája végig feszült maradt, egyetlen üresjárat sem volt benne.',
+                updatedAt: Date.now() - 86400000 * 10
+            },
+            {
+                id: 'book-2',
+                title: 'A Hail Mary-küldetés',
+                author: 'Andy Weir',
+                status: 'read',
+                rating: 5,
+                genres: ['Sci-fi', 'Űrutazás', 'Humor', 'Problémamegoldó'],
+                review: 'Zseniális tudományos fejtörők, szerethető főhős és fantasztikus barátság. A humor és a tétek tökéletes egyensúlya, pont az ilyen lendületes sci-fiket keresem.',
+                updatedAt: Date.now() - 86400000 * 8
+            },
+            {
+                id: 'book-3',
+                title: 'Piranesi',
+                author: 'Susanna Clarke',
+                status: 'read',
+                rating: 5,
+                genres: ['Fantasy', 'Rejtély', 'Atmoszférikus', 'Különleges'],
+                review: 'Lassabb építkezésű, de annyira egyedi a világépítése és a rejtély adagolása, hogy minden oldalát élveztem. Nem a felesleges leírások miatt lassú, hanem mert hipnotikus.',
+                updatedAt: Date.now() - 86400000 * 6
+            },
+            {
+                id: 'book-4',
+                title: 'Keiko vegyesboltja',
+                author: 'Murata Szajaka',
+                status: 'read',
+                rating: 4,
+                genres: ['Kortárs', 'Japán irodalom', 'Társadalomkritika', 'Rövid'],
+                review: 'Rövid, csípős, szokatlan nézőpontú regény a társadalmi elvárásokról. Nagyon tetszett a tömörsége és a fura, mégis hiteles főszereplő.',
+                updatedAt: Date.now() - 86400000 * 5
+            },
+            {
+                id: 'book-5',
+                title: 'Takarítás a holtak otthonában',
+                author: 'Kim Van',
+                status: 'read',
+                rating: 4,
+                genres: ['Kortárs', 'Koreai irodalom', 'Érzelmes', 'Történetmesélés'],
+                review: 'Megrendítő és emberséges történetek az elmúlásról és az emberi sorsokról. Rövid fejezetek, erős érzelmi töltet.',
+                updatedAt: Date.now() - 86400000 * 4
+            },
+            {
+                id: 'book-6',
+                title: 'Egy kis tokiói virágboltban',
+                author: 'Jamamoto Jukihisza',
+                status: 'read',
+                rating: 2,
+                genres: ['Kortárs', 'Japán irodalom', 'Lassú tempó', 'Életkép'],
+                review: 'Túl lassú volt a tempó, alig történt benne valódi cselekmény, sok volt a felesleges hétköznapi leírás. Az atmoszféra kedves, de számomra túlságosan eseménytelen.',
+                updatedAt: Date.now() - 86400000 * 3
+            },
+            {
+                id: 'book-7',
+                title: 'Babel',
+                author: 'R. F. Kuang',
+                status: 'tbr',
+                rating: 0,
+                genres: ['Fantasy', 'Történelmi', 'Dark Academia'],
+                review: 'Nagyon kíváncsi vagyok a nyelvi mágiára és a társadalmi feszültségekre, bár remélem, nem ül le a közepe.',
+                updatedAt: Date.now() - 86400000 * 2
+            },
+            {
+                id: 'book-8',
+                title: 'Pacsinkó',
+                author: 'Min Jin Lee',
+                status: 'tbr',
+                rating: 0,
+                genres: ['Történelmi', 'Családregény', 'Koreai irodalom'],
+                review: 'Generációkon átívelő dráma – akkor szeretném elolvasni, amikor egy mélyebb, érzelmesebb történetre vágyom.',
+                updatedAt: Date.now() - 86400000 * 1
+            }
+        ];
+
+        const DEFAULT_PROFILE = {
+            notes: [
+                'Szeretem a pörgős, feszes tempójú sci-fit és a kreatív világépítést',
+                'Kerüld a túl lassú, eseménytelen, pusztán leíró regényeket',
+                'Jöhetnek a rövid, ütős kortárs ázsiai regények erős karakterekkel'
+            ],
+            aiSummary: 'Az értékeléseid alapján kifejezetten kedveled a lendületes, problémamegoldó sci-fit (pl. A Hail Mary-küldetés, Vörös lázadás), az egyedi rejtélyeket (Piranesi) és a tömör, társadalmi kérdéseket boncolgató kortárs ázsiai prózát. Ugyanakkor elutasítod a cselekménytelen, túl lassan csordogáló történeteket (pl. Egy kis tokiói virágboltban).'
+        };
+
+        let appState = {
+            books: [],
+            profile: { ...DEFAULT_PROFILE },
+            statusFilter: 'all',
+            theme: 'light'
+        };
+
+        // --- INICIALIZÁLÁS (Firestore + Fallback ha nincs konfigurálva) ---
+        async function initApp() {
+            // Téma betöltése
+            const savedTheme = localStorage.getItem('olvasonaplo_theme');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                appState.theme = 'dark';
+            }
+
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    useFirestore = true;
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            currentUser = user;
+                            setupFirestoreListeners();
+                        }
+                    });
+                } else {
+                    loadFromLocalStorage();
+                }
+            } catch (err) {
+                console.warn("Firestore nem elérhető, helyi memória használata:", err);
+                useFirestore = false;
+                loadFromLocalStorage();
+            }
+        }
+
+        function loadFromLocalStorage() {
+            const savedBooks = localStorage.getItem('olvasonaplo_books_v1');
+            const savedProfile = localStorage.getItem('olvasonaplo_profile_v1');
+            
+            if (savedBooks) {
+                appState.books = JSON.parse(savedBooks);
+            } else {
+                appState.books = [...DEFAULT_BOOKS];
+                saveToLocalStorage();
+            }
+
+            if (savedProfile) {
+                appState.profile = JSON.parse(savedProfile);
+            } else {
+                appState.profile = { ...DEFAULT_PROFILE };
+                saveToLocalStorage();
+            }
+
+            updateUI();
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('olvasonaplo_books_v1', JSON.stringify(appState.books));
+            localStorage.setItem('olvasonaplo_profile_v1', JSON.stringify(appState.profile));
+        }
+
+        function setupFirestoreListeners() {
+            if (!currentUser || !db) return;
+
+            const booksCol = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'books');
+            const profileDoc = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'tasteProfile');
+
+            onSnapshot(booksCol, async (snapshot) => {
+                if (snapshot.empty && !localStorage.getItem('olvasonaplo_seeded_' + currentUser.uid)) {
+                    localStorage.setItem('olvasonaplo_seeded_' + currentUser.uid, 'true');
+                    for (const b of DEFAULT_BOOKS) {
+                        await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'books', b.id), b);
+                    }
+                    return;
+                }
+                const list = [];
+                snapshot.forEach(d => list.push(d.data()));
+                list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                appState.books = list;
+                updateUI();
+            }, (error) => {
+                console.error("Könyvek szinkronizálási hiba:", error);
+            });
+
+            onSnapshot(profileDoc, async (docSnap) => {
+                if (!docSnap.exists()) {
+                    await setDoc(profileDoc, DEFAULT_PROFILE);
+                    return;
+                }
+                appState.profile = docSnap.data();
+                updateUI();
+            }, (error) => {
+                console.error("Profil szinkronizálási hiba:", error);
+            });
+        }
+
+        async function persistBook(book) {
+            if (useFirestore && currentUser && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'books', book.id), book);
+            } else {
+                const idx = appState.books.findIndex(b => b.id === book.id);
+                if (idx >= 0) appState.books[idx] = book;
+                else appState.books.unshift(book);
+                saveToLocalStorage();
+                updateUI();
+            }
+        }
+
+        async function removeBookFromStore(bookId) {
+            if (useFirestore && currentUser && db) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'books', bookId));
+            } else {
+                appState.books = appState.books.filter(b => b.id !== bookId);
+                saveToLocalStorage();
+                updateUI();
+            }
+        }
+
+        async function persistProfile() {
+            if (useFirestore && currentUser && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'tasteProfile'), appState.profile);
+            } else {
+                saveToLocalStorage();
+                updateUI();
+            }
+        }
+
+        // --- UI RENDERELÉS ---
+        function updateUI() {
+            updateStats();
+            updateGenreFilterOptions();
+            renderBooks();
+            renderTasteProfile();
+        }
+
+        function updateStats() {
+            const readBooks = appState.books.filter(b => b.status === 'read');
+            const tbrBooks = appState.books.filter(b => b.status === 'tbr');
+            const dnfBooks = appState.books.filter(b => b.status === 'dnf');
+
+            const ratedBooks = readBooks.filter(b => b.rating > 0);
+            const avg = ratedBooks.length > 0 
+                ? (ratedBooks.reduce((sum, b) => sum + Number(b.rating), 0) / ratedBooks.length).toFixed(1) 
+                : '0.0';
+
+            document.getElementById('stat-read').textContent = readBooks.length;
+            document.getElementById('stat-avg').textContent = avg;
+            document.getElementById('stat-tbr').textContent = tbrBooks.length;
+            document.getElementById('stat-dnf').textContent = dnfBooks.length;
+        }
+
+        function updateGenreFilterOptions() {
+            const select = document.getElementById('genre-filter');
+            const currentVal = select.value;
+            const genreSet = new Set();
+            appState.books.forEach(b => (b.genres || []).forEach(g => genreSet.add(g.trim())));
+
+            select.innerHTML = '<option value="all">Minden műfaj</option>';
+            Array.from(genreSet).sort().forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                select.appendChild(opt);
+            });
+            if (Array.from(genreSet).includes(currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        window.setStatusFilter = function(status) {
+            appState.statusFilter = status;
+            document.querySelectorAll('.filter-pill').forEach(btn => {
+                if (btn.dataset.status === status) {
+                    btn.className = 'filter-pill px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-900 text-white dark:bg-amber-600 transition';
+                } else {
+                    btn.className = 'filter-pill px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 text-stone-600 dark:bg-slate-800 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-slate-700 transition';
+                }
+            });
+            renderBooks();
+        };
+
+        window.renderBooks = function() {
+            const container = document.getElementById('books-list');
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const genreFilter = document.getElementById('genre-filter').value;
+            const ratingFilter = document.getElementById('rating-filter').value;
+
+            const filtered = appState.books.filter(book => {
+                if (appState.statusFilter !== 'all' && book.status !== appState.statusFilter) return false;
+                if (genreFilter !== 'all' && !(book.genres || []).includes(genreFilter)) return false;
+                if (ratingFilter !== 'all') {
+                    const r = Number(book.rating || 0);
+                    if (ratingFilter === '5' && r !== 5) return false;
+                    if (ratingFilter === '4' && r < 4) return false;
+                    if (ratingFilter === '3' && (r === 0 || r > 3)) return false;
+                }
+                if (search) {
+                    const hay = `${book.title} ${book.author} ${(book.genres || []).join(' ')} ${book.review || ''}`.toLowerCase();
+                    if (!hay.includes(search)) return false;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900/60 border border-dashed border-stone-300 dark:border-slate-700 rounded-2xl p-10 text-center">
+                        <p class="text-sm font-medium text-stone-500 dark:text-stone-400">Nincs a szűrésnek megfelelő könyv a listádban.</p>
+                        <button onclick="openBookModal()" class="mt-3 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition">+ Új könyv hozzáadása</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(book => {
+                const statusBadge = {
+                    read: '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">Olvasott</span>',
+                    tbr: '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300">Várólista</span>',
+                    dnf: '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300">Félbehagyott</span>'
+                }[book.status] || '';
+
+                const stars = book.status !== 'tbr' && book.rating > 0
+                    ? `<div class="flex items-center text-amber-400 text-sm" title="${book.rating} / 5 csillag">
+                        ${'★'.repeat(book.rating)}<span class="text-stone-300 dark:text-slate-700">${'★'.repeat(5 - book.rating)}</span>
+                       </div>`
+                    : '';
+
+                const genresHtml = (book.genres || []).map(g => 
+                    `<span class="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-paper-100 dark:bg-slate-800 text-stone-600 dark:text-stone-300 border border-stone-200/70 dark:border-slate-700">${escapeHtml(g)}</span>`
+                ).join('');
+
+                return `
+                    <article class="bg-white dark:bg-slate-900 border border-stone-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition group fade-in">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                    ${statusBadge}
+                                    ${stars}
+                                </div>
+                                <h3 class="font-serif font-bold text-lg text-stone-900 dark:text-white leading-snug">${escapeHtml(book.title)}</h3>
+                                <p class="text-xs font-medium text-stone-500 dark:text-stone-400 mt-0.5">${escapeHtml(book.author)}</p>
+                            </div>
+                            <div class="flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                                <button onclick="editBook('${book.id}')" title="Szerkesztés" class="p-2 rounded-xl text-stone-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <button onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title).replace(/'/g, "\\'")}')" title="Törlés" class="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        ${book.review ? `
+                            <p class="mt-3 text-sm text-stone-600 dark:text-stone-300 leading-relaxed bg-paper-50/70 dark:bg-slate-800/40 p-3 rounded-xl border border-stone-100 dark:border-slate-800/80">
+                                „${escapeHtml(book.review)}”
+                            </p>
+                        ` : ''}
+
+                        ${genresHtml ? `
+                            <div class="mt-3.5 flex flex-wrap gap-1.5">
+                                ${genresHtml}
+                            </div>
+                        ` : ''}
+                    </article>
+                `;
+            }).join('');
+        };
+
+        function renderTasteProfile() {
+            const summaryBox = document.getElementById('taste-summary-box');
+            const notesList = document.getElementById('memory-notes-list');
+
+            // Kedvenc műfajok kiszámítása a 4-5 csillagos könyvekből
+            const genreScores = {};
+            appState.books.filter(b => b.status === 'read' && b.rating >= 4).forEach(b => {
+                (b.genres || []).forEach(g => {
+                    genreScores[g] = (genreScores[g] || 0) + b.rating;
+                });
+            });
+            const topGenres = Object.entries(genreScores)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 4)
+                .map(([g]) => g);
+
+            summaryBox.innerHTML = `
+                <p class="leading-relaxed">${escapeHtml(appState.profile.aiSummary || 'Még nincs AI összefoglaló. Kattints az AI Elemzés gombra!')}</p>
+                ${topGenres.length > 0 ? `
+                    <div class="pt-1.5 border-t border-stone-200/70 dark:border-slate-700/70 flex flex-wrap items-center gap-1.5">
+                        <span class="font-semibold text-stone-500 dark:text-stone-400">Top műfajok:</span>
+                        ${topGenres.map(g => `<span class="px-2 py-0.5 rounded-md bg-amber-100/80 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-medium">${escapeHtml(g)}</span>`).join('')}
+                    </div>
+                ` : ''}
+            `;
+
+            const notes = appState.profile.notes || [];
+            notesList.innerHTML = notes.map((note, idx) => `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs bg-stone-100 dark:bg-slate-800 text-stone-700 dark:text-stone-200 border border-stone-200/80 dark:border-slate-700">
+                    <span>${escapeHtml(note)}</span>
+                    <button onclick="removeMemoryNote(${idx})" class="text-stone-400 hover:text-rose-500 font-bold ml-0.5" title="Törlés">&times;</button>
+                </span>
+            `).join('');
+        }
+
+        // --- KÖNYV CRUD MŰVELETEK ---
+        window.openBookModal = function(book = null) {
+            const modal = document.getElementById('book-modal');
+            const titleEl = document.getElementById('book-modal-title');
+            document.getElementById('book-form').reset();
+
+            if (book) {
+                titleEl.textContent = 'Könyv szerkesztése';
+                document.getElementById('book-id').value = book.id;
+                document.getElementById('book-title').value = book.title;
+                document.getElementById('book-author').value = book.author;
+                document.getElementById('book-status').value = book.status;
+                document.getElementById('book-genres').value = (book.genres || []).join(', ');
+                document.getElementById('book-review').value = book.review || '';
+                setStarRating(book.rating || 5);
+            } else {
+                titleEl.textContent = 'Új könyv rögzítése';
+                document.getElementById('book-id').value = '';
+                document.getElementById('book-status').value = 'read';
+                setStarRating(5);
+            }
+
+            toggleRatingVisibility();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeBookModal = function() {
+            const modal = document.getElementById('book-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.editBook = function(id) {
+            const book = appState.books.find(b => b.id === id);
+            if (book) openBookModal(book);
+        };
+
+        window.toggleRatingVisibility = function() {
+            const status = document.getElementById('book-status').value;
+            const container = document.getElementById('rating-field-container');
+            container.style.opacity = status === 'tbr' ? '0.4' : '1';
+            container.style.pointerEvents = status === 'tbr' ? 'none' : 'auto';
+        };
+
+        function setStarRating(val) {
+            document.getElementById('book-rating').value = val;
+            document.getElementById('rating-text').textContent = `${val} / 5`;
+            document.querySelectorAll('#star-selector .star-btn').forEach(btn => {
+                const v = Number(btn.dataset.val);
+                btn.classList.toggle('text-amber-400', v <= val);
+                btn.classList.toggle('text-stone-300', v > val);
+                btn.classList.toggle('dark:text-slate-700', v > val);
+            });
+        }
+
+        document.querySelectorAll('#star-selector .star-btn').forEach(btn => {
+            btn.addEventListener('click', () => setStarRating(Number(btn.dataset.val)));
+        });
+
+        document.getElementById('book-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('book-id').value || 'book-' + Date.now();
+            const status = document.getElementById('book-status').value;
+            const genresRaw = document.getElementById('book-genres').value;
+            const genres = genresRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+            const bookData = {
+                id,
+                title: document.getElementById('book-title').value.trim(),
+                author: document.getElementById('book-author').value.trim(),
+                status,
+                rating: status === 'tbr' ? 0 : Number(document.getElementById('book-rating').value),
+                genres,
+                review: document.getElementById('book-review').value.trim(),
+                updatedAt: Date.now()
+            };
+
+            await persistBook(bookData);
+            closeBookModal();
+            showToast(`„${bookData.title}” elmentve a könyvtárba!`);
+        });
+
+        window.confirmDeleteBook = function(id, title) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').textContent = 'Könyv törlése';
+            document.getElementById('confirm-message').textContent = `Biztosan törölni szeretnéd a(z) „${title}” című könyvet az értékeléseiddel együtt?`;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const okBtn = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            cancelBtn.onclick = cleanup;
+            okBtn.onclick = async () => {
+                await removeBookFromStore(id);
+                cleanup();
+                showToast('Könyv törölve.');
+            };
+        };
+
+        // --- AI MEMÓRIAJEGYZETEK ---
+        window.addMemoryNote = async function() {
+            const input = document.getElementById('memory-note-input');
+            const val = input.value.trim();
+            if (!val) return;
+            appState.profile.notes = [...(appState.profile.notes || []), val];
+            input.value = '';
+            await persistProfile();
+            showToast('AI memóriajegyzet rögzítve!');
+        };
+
+        window.removeMemoryNote = async function(index) {
+            appState.profile.notes.splice(index, 1);
+            await persistProfile();
+        };
+
+        // --- GEMINI API INTEGRÁCIÓ (Exponenciális visszalépéssel) ---
+        async function callGeminiAPI(promptText, systemInstructionText, jsonSchema = null) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: { parts: [{ text: systemInstructionText }] }
+            };
+
+            if (jsonSchema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: jsonSchema
+                };
+            }
+
+            const delays = [1000, 2000, 4000, 8000];
+            for (let attempt = 0; attempt <= delays.length; attempt++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP hiba: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error('Üres AI válasz');
+                    return text;
+                } catch (err) {
+                    if (attempt === delays.length) throw err;
+                    await new Promise(res => setTimeout(res, delays[attempt]));
+                }
+            }
+        }
+
+        function buildFullReaderContext() {
+            const read = appState.books.filter(b => b.status === 'read');
+            const dnf = appState.books.filter(b => b.status === 'dnf');
+            const tbr = appState.books.filter(b => b.status === 'tbr');
+
+            return `
+TELJES OLVASÓI ADATBÁZIS:
+1. OLVASOTT KÖNYVEK ÉS ÉRTÉKELÉSEK (${read.length} db):
+${read.map(b => `- "${b.title}" (${b.author}) | Értékelés: ${b.rating}/5 | Műfajok: ${(b.genres||[]).join(', ')} | Vélemény: ${b.review || 'Nincs megjegyzés'}`).join('\n') || 'Nincs még olvasott könyv.'}
+
+2. FÉLBEHAGYOTT KÖNYVEK (${dnf.length} db - ezeket nem szerette):
+${dnf.map(b => `- "${b.title}" (${b.author}) | Ok/vélemény: ${b.review || 'Nincs megadva'}`).join('\n') || 'Nincs.'}
+
+3. VÁRÓLISTA / TBR (${tbr.length} db):
+${tbr.map(b => `- "${b.title}" (${b.author}) | Műfajok: ${(b.genres||[]).join(', ')} | Megjegyzés: ${b.review || ''}`).join('\n') || 'Üres a várólista.'}
+
+4. FELHASZNÁLÓ ÁLLANDÓ MEMÓRIAJEGYZETEI ÉS TILTÓLISTÁJA:
+${(appState.profile.notes || []).map(n => `- ${n}`).join('\n') || 'Nincs külön jegyzet.'}
+
+5. JELENLEGI ÍZLÉSPROFIL ÖSSZEFOGLALÓ:
+${appState.profile.aiSummary || ''}
+            `.trim();
+        }
+
+        // Ízlésprofil AI frissítése
+        window.refreshTasteProfileWithAI = async function() {
+            const btn = document.getElementById('refresh-profile-btn');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-spin inline-block w-3 h-3 border-2 border-amber-600 border-t-transparent rounded-full"></span> Elemzés...`;
+
+            try {
+                const context = buildFullReaderContext();
+                const systemPrompt = "Te egy irodalmi ízléselemző asszisztens vagy. Elemezd a felhasználó összes olvasott, félbehagyott könyvét és jegyzetét, és foglald össze magyarul, tömören (3-4 mondatban), mit szeret (tempó, stílus, témák) és mit utasít el határozottan.";
+                const summary = await callGeminiAPI(`Készíts frissített olvasói ízlésprofilt ezen adatok alapján:\n\n${context}`, systemPrompt);
+                
+                appState.profile.aiSummary = summary.trim();
+                await persistProfile();
+                showToast('Olvasói ízlésprofil frissítve az AI által!');
+            } catch (err) {
+                console.error(err);
+                showToast('Nem sikerült az AI elemzés. Próbáld újra később!', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        // Könyvajánlások kérése (Új könyvek vagy Várólista rangsorolás)
+        window.getAIRecommendations = async function(mode) {
+            const mood = document.getElementById('ai-mood-input').value.trim();
+            const resultsContainer = document.getElementById('ai-results-container');
+            const resultsList = document.getElementById('ai-results-list');
+            const heading = document.getElementById('ai-results-heading');
+            const btnNew = document.getElementById('btn-rec-new');
+            const btnTbr = document.getElementById('btn-rec-tbr');
+
+            if (mode === 'tbr' && appState.books.filter(b => b.status === 'tbr').length === 0) {
+                showToast('A várólistád jelenleg üres! Előbb adj hozzá várólistás könyveket.', 'error');
+                return;
+            }
+
+            btnNew.disabled = true;
+            btnTbr.disabled = true;
+            resultsContainer.classList.remove('hidden');
+            heading.textContent = mode === 'new' ? 'Új könyvek keresése az ízlésedhez...' : 'Várólista rangsorolása...';
+            resultsList.innerHTML = `
+                <div class="p-6 text-center space-y-2 bg-white/70 dark:bg-slate-800/50 rounded-xl border border-stone-200/60 dark:border-slate-700/60">
+                    <div class="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p class="text-xs text-stone-500 dark:text-stone-400">Az AI átnézi az összes korábbi értékelésedet és memóriajegyzetet...</p>
+                </div>
+            `;
+
+            const schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        title: { type: "STRING" },
+                        author: { type: "STRING" },
+                        genres: { type: "ARRAY", items: { type: "STRING" } },
+                        matchScore: { type: "STRING", description: "Pl. 96% egyezés" },
+                        reason: { type: "STRING", description: "Részletes magyar indoklás, kifejezetten hivatkozva a felhasználó korábbi könyvértékeléseire és ízlésére." }
+                    },
+                    required: ["title", "author", "genres", "matchScore", "reason"]
+                }
+            };
+
+            const context = buildFullReaderContext();
+            let systemPrompt = "";
+            let userPrompt = "";
+
+            if (mode === 'new') {
+                systemPrompt = `Te egy személyre szabott magyar könyvajánló szakértő vagy. A felhasználó teljes olvasási előzményét, csillagos értékeléseit, szöveges kritikáit és tiltólistáját ismered.
+SZIGORÚ SZABÁLYOK:
+1. SOHA ne ajánlj olyan könyvet, ami már szerepel a felhasználó olvasott, félbehagyott vagy várólistás könyvei között!
+2. Ajánlj 3 olyan könyvet (magyarul megjelent vagy nemzetközileg ismert címmel), amelyek tökéletesen illeszkednek az ízléséhez és elkerülik a tiltólistás elemeket.
+3. Az indoklásban KÖTELEZŐ név szerint hivatkozni a felhasználó korábban értékelt könyveire (pl. "Mivel imádtad A Hail Mary-küldetés pörgős problémamegoldását, de az Egy kis tokiói virágboltban tempóját túl lassúnak találtad...").`;
+                userPrompt = `${context}\n\nAKTUÁLIS HANGULAT / KÉRÉS: ${mood || 'Nincs külön megkötés, a legjobb általános találatokat kérem.'}\n\nAjánlj 3 új könyvet!`;
+            } else {
+                systemPrompt = `Te egy személyre szabott magyar könyvajánló szakértő vagy. A feladatod, hogy a felhasználó saját VÁRÓLISTÁJÁN (TBR) szereplő könyveket rangsorold aszerint, melyiket érdemes MOST elolvasnia.
+SZIGORÚ SZABÁLYOK:
+1. KIZÁRÓLAG a felhasználó Várólistáján (TBR) szereplő könyvek közül válassz!
+2. Rangsorold őket (legfeljebb 3-at), és indokold meg részletesen, a korábbi értékeléseire és az aktuális hangulatára hivatkozva, miért az adott könyvvel érdemes kezdenie.`;
+                userPrompt = `${context}\n\nAKTUÁLIS HANGULAT / KÉRÉS: ${mood || 'Általános ajánlás a várólistámról az ízlésem alapján.'}\n\nRangsorold a várólistám könyveit!`;
+            }
+
+            try {
+                const rawJson = await callGeminiAPI(userPrompt, systemPrompt, schema);
+                const recommendations = JSON.parse(rawJson);
+
+                heading.textContent = mode === 'new' 
+                    ? `Személyre szabott új ajánlások (${recommendations.length})` 
+                    : `Várólista rangsor – Ezzel kezdd!`;
+
+                resultsList.innerHTML = recommendations.map((rec, idx) => {
+                    const alreadyInLibrary = appState.books.some(b => b.title.toLowerCase() === rec.title.toLowerCase());
+                    const recEncoded = encodeURIComponent(JSON.stringify(rec));
+
+                    return `
+                        <div class="bg-white dark:bg-slate-800/90 border border-stone-200 dark:border-slate-700 rounded-xl p-4 shadow-sm space-y-2.5 fade-in">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-[11px] font-bold">${idx + 1}</span>
+                                        <span class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">${escapeHtml(rec.matchScore)}</span>
+                                    </div>
+                                    <h4 class="font-serif font-bold text-sm text-stone-900 dark:text-white mt-1">${escapeHtml(rec.title)}</h4>
+                                    <p class="text-xs text-stone-500 dark:text-stone-400">${escapeHtml(rec.author)}</p>
+                                </div>
+                                ${mode === 'new' ? (
+                                    alreadyInLibrary 
+                                    ? `<span class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-stone-100 dark:bg-slate-700 text-stone-500 dark:text-stone-300">Már a listádon</span>`
+                                    : `<button onclick="addRecommendedToTBR('${recEncoded}', this)" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-semibold transition flex items-center gap-1">
+                                        + Várólistára
+                                       </button>`
+                                ) : ''}
+                            </div>
+                            <p class="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">${escapeHtml(rec.reason)}</p>
+                            <div class="flex flex-wrap gap-1 pt-0.5">
+                                ${(rec.genres || []).map(g => `<span class="px-2 py-0.5 rounded-md text-[10px] bg-paper-100 dark:bg-slate-700/70 text-stone-600 dark:text-stone-300">${escapeHtml(g)}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                resultsList.innerHTML = `
+                    <div class="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
+                        Hiba történt az AI ajánlás lekérésekor. Kérlek, próbáld meg újra!
+                    </div>
+                `;
+            } finally {
+                btnNew.disabled = false;
+                btnTbr.disabled = false;
+            }
+        };
+
+        window.addRecommendedToTBR = async function(recEncoded, btnEl) {
+            const rec = JSON.parse(decodeURIComponent(recEncoded));
+            const newBook = {
+                id: 'book-' + Date.now(),
+                title: rec.title,
+                author: rec.author,
+                status: 'tbr',
+                rating: 0,
+                genres: rec.genres || [],
+                review: `AI ajánlás alapján felvéve: ${rec.reason}`,
+                updatedAt: Date.now()
+            };
+            await persistBook(newBook);
+            btnEl.outerHTML = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">Hozzáadva ✓</span>`;
+            showToast(`„${rec.title}” hozzáadva a Várólistához!`);
+        };
+
+        // --- JSON EXPORT / IMPORT ---
+        window.exportData = function() {
+            const dataStr = JSON.stringify({
+                exportedAt: new Date().toISOString(),
+                books: appState.books,
+                profile: appState.profile
+            }, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `olvasonaplo-mentes-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Biztonsági mentés (JSON) letöltve!');
+        };
+
+        window.importData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!Array.isArray(parsed.books)) throw new Error('Érvénytelen fájlformátum');
+
+                    if (useFirestore && currentUser && db) {
+                        for (const b of parsed.books) {
+                            await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'books', b.id || ('book-' + Math.random())), b);
+                        }
+                        if (parsed.profile) {
+                            await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'tasteProfile'), parsed.profile);
+                        }
+                    } else {
+                        appState.books = parsed.books;
+                        if (parsed.profile) appState.profile = parsed.profile;
+                        saveToLocalStorage();
+                        updateUI();
+                    }
+                    showToast(`${parsed.books.length} könyv sikeresen visszatöltve!`);
+                } catch (err) {
+                    showToast('Hibás JSON mentési fájl!', 'error');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        };
+
+        // --- SEGÉDFÜGGVÉNYEK ---
+        window.toggleTheme = function() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('olvasonaplo_theme', isDark ? 'dark' : 'light');
+        };
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bg = type === 'error' 
+                ? 'bg-rose-600 text-white' 
+                : 'bg-stone-900 dark:bg-amber-600 text-white';
+            toast.className = `${bg} px-4 py-3 rounded-xl shadow-lg text-xs font-medium pointer-events-auto fade-in flex items-center gap-2`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Indítás
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
